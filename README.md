@@ -8,6 +8,5 @@ brew trust --cask zimengxiong/tools/tabbed
 brew tap ZimengXiong/tools
 brew install --cask tabbed
 xattr -dr com.apple.quarantine /Applications/Tabbed.app
-
-# on first launch, grant System Settings -> Privacy & Security -> Accessibility
 ```
+on first launch, grant **System Settings -> Privacy & Security -> Accessibility**
