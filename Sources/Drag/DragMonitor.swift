@@ -149,9 +149,7 @@ final class DragMonitor {
     }
 
     private func appKitPoint(fromCGEvent event: CGEvent) -> CGPoint {
-        let point = event.location
-        let height = NSScreen.screens.first?.frame.height ?? NSScreen.main?.frame.height ?? 0
-        return CGPoint(x: point.x, y: height - point.y)
+        CoordinateConverter.appKitPoint(fromCG: event.location)
     }
 
     private static func mask(for types: [CGEventType]) -> CGEventMask {

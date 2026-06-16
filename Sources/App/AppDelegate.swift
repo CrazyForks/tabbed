@@ -10,6 +10,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private lazy var controller = TabGroupController(engine: engine)
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else {
+            return
+        }
+
         setUpStatusItem()
 
         let trusted = ensureAccessibilityPermission()

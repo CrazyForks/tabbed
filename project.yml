@@ -32,3 +32,16 @@ targets:
         SWIFT_OBJC_BRIDGING_HEADER: Sources/Accessibility/Tabbed-Bridging-Header.h
         COMBINE_HIDPI_IMAGES: YES
         ENABLE_USER_SCRIPT_SANDBOXING: NO
+
+  TabbedTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: Tests
+    dependencies:
+      - target: Tabbed
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Tabbed.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Tabbed"
+        BUNDLE_LOADER: "$(TEST_HOST)"

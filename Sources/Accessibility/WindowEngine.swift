@@ -52,6 +52,15 @@ protocol WindowEngine: AnyObject {
     /// Live frame from the window server, fresher than AX during title-bar drags.
     func windowServerFrame(of id: WindowID) -> CGRect?
 
+    /// Focused or main window id for an app process, if AX can resolve it.
+    func focusedOrMainWindowID(for pid: pid_t) -> WindowID?
+
+    /// Frontmost visible standard-layer window from the window server.
+    func frontmostWindowID() -> WindowID?
+
+    /// Candidate concrete windows for a newly-created AX window notification.
+    func candidateWindowElements(from element: AXUIElement, pid: pid_t) -> [AXUIElement]
+
     /// Move/resize the window in AppKit screen coordinates.
     func setFrame(_ frame: CGRect, of window: ManagedWindow)
 
