@@ -93,10 +93,26 @@ final class TabGroup {
                       height: Theme.stripHeight)
     }
 
-    /// Resting frame the tab strip should occupy: the full bar above the window
-    /// when there's room, otherwise the compact top-right pill.
+    /// Panel frame for the resting compact pill, grown by `compactInset` on every
+    /// side so the panel also covers the inset gap where the frosted matte halo is
+    /// drawn. Top/right reach the window edge; left/bottom get a soft halo. The
+    /// pill itself is re-inset back to `compactPillFrame` inside the panel.
+    var compactPillMatteFrame: CGRect {
+        compactPillFrame.insetBy(dx: -Theme.compactInset, dy: -Theme.compactInset)
+    }
+
+    /// Panel frame for the expanded compact bar, grown by `compactInset` on every
+    /// side for the matte halo. Top/left/right land exactly on the window edges;
+    /// the bottom gets a one-inset halo (the window edge below is much farther, so
+    /// the matte deliberately does not extend all the way down).
+    var compactExpandedMatteFrame: CGRect {
+        compactExpandedFrame.insetBy(dx: -Theme.compactInset, dy: -Theme.compactInset)
+    }
+
+    /// Resting frame the tab strip's panel should occupy: the full bar above the
+    /// window when there's room, otherwise the compact top-right pill (matte-grown).
     var stripFrame: CGRect {
-        useCompact ? compactPillFrame : stripFrameAbove
+        useCompact ? compactPillMatteFrame : stripFrameAbove
     }
 
     /// Push current model state into the observable view model for the UI.

@@ -30,7 +30,15 @@ enum Theme {
     static let compactIconSize: CGFloat = 16
     /// Margin between the compact pill / expanded bar and the window's edges, so
     /// both float *inside* the window corner instead of sitting flush against it.
+    /// This same gap is filled by the frosted matte halo (see below).
     static let compactInset: CGFloat = 6
+
+    /// Frosted "matte" halo drawn in the `compactInset` gap around the compact
+    /// bar — a slight blur of the window content behind it that lifts the bar off
+    /// busy backgrounds. Concentric with the bar's outer curve.
+    static let compactMatteCornerRadius: CGFloat = stripCornerRadius + compactInset
+    /// Dark wash layered over the matte's blur to add contrast. Tunable.
+    static let compactMatteTint: Double = 0.12
 
     // Tints used only on the pre-macOS-26 fallback path (no Liquid Glass).
     static let fillActive = 0.16

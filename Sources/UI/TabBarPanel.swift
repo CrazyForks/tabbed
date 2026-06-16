@@ -17,8 +17,12 @@ final class TabBarPanel: NSPanel {
     private var expandedFrame: CGRect = .zero
 
     /// How far the cursor may stray beyond the expanded bar before it collapses
-    /// back to the pill — a grace margin so a small overshoot doesn't dismiss it.
-    private let collapseSafeZone: CGFloat = 20
+    /// back to the pill — a grace margin so an overshoot doesn't dismiss it. The
+    /// vertical margin is deliberately much larger than the horizontal one, since
+    /// the natural overshoot when reaching for a top-edge bar is up/down (into the
+    /// menu bar above or the window body below).
+    private let collapseSafeZoneX: CGFloat = 28
+    private let collapseSafeZoneY: CGFloat = 72
     /// Polls the cursor after it leaves the bar; fires a collapse only once the
     /// cursor crosses the padded safe-zone boundary.
     private var collapseWatcher: Timer?
@@ -122,7 +126,7 @@ final class TabBarPanel: NSPanel {
     }
 
     private func tickCollapseWatch() {
-        let safe = expandedFrame.insetBy(dx: -collapseSafeZone, dy: -collapseSafeZone)
+        let safe = expandedFrame.insetBy(dx: -collapseSafeZoneX, dy: -collapseSafeZoneY)
         if !safe.contains(NSEvent.mouseLocation) {
             cancelCollapseWatch()
             setExpanded(false)

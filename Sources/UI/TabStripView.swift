@@ -8,13 +8,39 @@ struct TabStripView: View {
     @State private var dragStartMouse: CGPoint?
 
     var body: some View {
-        content
-            .frame(height: Theme.stripHeight)
-            .glassBar()
+        bar
             .contentShape(Rectangle())
             .onTapGesture { model.activateActive() }
             .gesture(moveGesture)
             .animation(.easeOut(duration: 0.18), value: isShowingPill)
+    }
+
+    /// The glass bar itself. In compact mode it's re-inset inside the panel and
+    /// surrounded by the frosted matte halo (`compactMatte`) that fills the gap
+    /// out to the window edges; otherwise it fills the panel as before.
+    @ViewBuilder
+    private var bar: some View {
+        let core = content.frame(height: Theme.stripHeight).glassBar()
+        if model.compact {
+            core
+                .padding(Theme.compactInset)
+                .background(compactMatte)
+        } else {
+            core
+        }
+    }
+
+    /// A slight blur of the window content behind the bar, drawn in the inset gap
+    /// around it (concentric with the bar's curve). Lifts the bar off busy
+    /// backgrounds without covering the window like a solid frame would.
+    private var compactMatte: some View {
+        let shape = RoundedRectangle(cornerRadius: Theme.compactMatteCornerRadius, style: .continuous)
+        return ZStack {
+            VisualEffectBackground(material: .hudWindow, blending: .behindWindow)
+            shape.fill(.black.opacity(Theme.compactMatteTint))
+        }
+        .clipShape(shape)
+        .overlay(shape.strokeBorder(.white.opacity(0.06), lineWidth: 0.5))
     }
 
     private var isShowingPill: Bool { model.compact && !model.hovered }

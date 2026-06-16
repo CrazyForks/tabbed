@@ -239,7 +239,7 @@ final class TabGroupController: NSObject, DragMonitorDelegate {
         group.panel.applyLayout(
             compact: compact,
             resting: group.stripFrame,
-            expanded: compact ? group.compactExpandedFrame : group.stripFrameAbove
+            expanded: compact ? group.compactExpandedMatteFrame : group.stripFrameAbove
         )
         reassertPanelZOrder(for: group)
     }

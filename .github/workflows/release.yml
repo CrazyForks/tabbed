@@ -1,0 +1,179 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build, sign, release, and update tap
+    runs-on: macos-latest
+
+    env:
+      APP_NAME: Tabbed
+      APP_BUNDLE_ID: dev.local.Tabbed
+      TAP_REPO: ZimengXiong/homebrew-tools
+      TAP_CASK_PATH: Casks/tabbed.rb
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Install build tools
+        run: brew install xcodegen
+
+      - name: Import signing certificate
+        env:
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          test -n "$APPLE_CERTIFICATE_BASE64"
+          test -n "$APPLE_CERTIFICATE_PASSWORD"
+          test -n "$KEYCHAIN_PASSWORD"
+
+          certificate_path="$RUNNER_TEMP/signing.p12"
+          keychain_path="$RUNNER_TEMP/app-signing.keychain-db"
+
+          printf "%s" "$APPLE_CERTIFICATE_BASE64" | base64 --decode > "$certificate_path"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$keychain_path"
+          security set-keychain-settings -lut 21600 "$keychain_path"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$keychain_path"
+          security import "$certificate_path" \
+            -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -A \
+            -t cert \
+            -f pkcs12 \
+            -k "$keychain_path"
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign: \
+            -s \
+            -k "$KEYCHAIN_PASSWORD" \
+            "$keychain_path"
+          security list-keychain -d user -s "$keychain_path"
+
+      - name: Build release app
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: |
+          test -n "$APPLE_TEAM_ID"
+          test -n "$APPLE_SIGNING_IDENTITY"
+
+          xcodegen generate
+          xcodebuild \
+            -project Tabbed.xcodeproj \
+            -scheme Tabbed \
+            -configuration Release \
+            -derivedDataPath .build/DerivedData \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CODE_SIGN_IDENTITY="$APPLE_SIGNING_IDENTITY" \
+            CODE_SIGN_STYLE=Manual \
+            build
+
+      - name: Verify signature and package app
+        id: package
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          version="${tag#v}"
+          app_path=".build/DerivedData/Build/Products/Release/${APP_NAME}.app"
+          zip_path=".build/${APP_NAME}.app.zip"
+          sha_path="${zip_path}.sha256"
+          plist_version=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "${app_path}/Contents/Info.plist")
+
+          test "$version" = "$plist_version"
+          codesign --verify --deep --strict --verbose=2 "$app_path"
+          ditto -c -k --keepParent "$app_path" "$zip_path"
+          shasum -a 256 "$zip_path" | tee "$sha_path"
+
+          {
+            echo "version=$version"
+            echo "zip_path=$zip_path"
+            echo "sha_path=$sha_path"
+            echo "sha256=$(cut -d ' ' -f 1 "$sha_path")"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          notes_file=".build/release-notes.md"
+          {
+            echo "## Tabbed ${GITHUB_REF_NAME#v}"
+            echo
+            echo "- Signed macOS app bundle"
+            echo "- SHA256: \`${{ steps.package.outputs.sha256 }}\`"
+          } > "$notes_file"
+
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" \
+              "${{ steps.package.outputs.zip_path }}" \
+              "${{ steps.package.outputs.sha_path }}" \
+              --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              "${{ steps.package.outputs.zip_path }}" \
+              "${{ steps.package.outputs.sha_path }}" \
+              --title "Tabbed ${{ steps.package.outputs.version }}" \
+              --notes-file "$notes_file"
+          fi
+
+      - name: Update Homebrew tap
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          VERSION: ${{ steps.package.outputs.version }}
+          SHA256: ${{ steps.package.outputs.sha256 }}
+        run: |
+          test -n "$GH_TOKEN"
+          tap_dir="$RUNNER_TEMP/homebrew-tools"
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/${TAP_REPO}.git" "$tap_dir"
+          cd "$tap_dir"
+
+          asset_id=$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${GITHUB_REF_NAME}" \
+            --jq '.assets[] | select(.name == "Tabbed.app.zip") | .id')
+          test -n "$asset_id"
+
+          mkdir -p "$(dirname "$TAP_CASK_PATH")"
+          cat > "$TAP_CASK_PATH" <<RUBY
+          cask "tabbed" do
+            version "${VERSION}"
+            sha256 "${SHA256}"
+
+            url "https://api.github.com/repos/ZimengXiong/tabbed/releases/assets/${asset_id}",
+                header: [
+                  "Accept: application/octet-stream",
+                  "Authorization: token #{ENV.fetch("HOMEBREW_GITHUB_API_TOKEN", "")}"
+                ]
+            name "Tabbed"
+            desc "Command-drag macOS windows into lightweight tab stacks"
+            homepage "https://github.com/ZimengXiong/tabbed"
+
+            depends_on macos: :sonoma
+
+            app "Tabbed.app"
+
+            postflight do
+              system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{appdir}/Tabbed.app"]
+            end
+
+            zap trash: [
+              "~/Library/Preferences/dev.local.Tabbed.plist",
+              "~/Library/Saved Application State/dev.local.Tabbed.savedState"
+            ]
+          end
+          RUBY
+          ruby -c "$TAP_CASK_PATH"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$TAP_CASK_PATH"
+          if git diff --cached --quiet; then
+            echo "Homebrew tap is already current."
+          else
+            git commit -m "Update tabbed to ${VERSION}"
+            git push origin HEAD:main
+          fi
