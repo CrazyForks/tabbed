@@ -8,37 +8,11 @@ final class AXWindowEngine: WindowEngine {
     private let ownPID = ProcessInfo.processInfo.processIdentifier
 
     func window(at point: CGPoint, excluding: Set<WindowID>) -> ManagedWindow? {
-        guard let windowInfos = CGWindowListCopyWindowInfo(
-            [.optionOnScreenOnly, .excludeDesktopElements],
-            CGWindowID(0)
-        ) as? [[String: Any]] else {
-            return nil
-        }
-
-        for info in windowInfos {
-            guard let number = info[kCGWindowNumber as String] as? NSNumber,
-                  let ownerPID = info[kCGWindowOwnerPID as String] as? NSNumber,
-                  let layer = info[kCGWindowLayer as String] as? NSNumber,
-                  let boundsDict = info[kCGWindowBounds as String] as? NSDictionary else {
+        for window in WindowServerSnapshot.onScreenWindows(excludingOwnPID: ownPID, excluding: excluding) {
+            guard window.frame.contains(point),
+                  let managed = managedWindow(id: window.id, pid: window.pid, ownerInfo: window.ownerInfo) else {
                 continue
             }
-
-            let windowID = WindowID(number.uint32Value)
-            let pid = pid_t(ownerPID.int32Value)
-            if pid == ownPID || excluding.contains(windowID) || layer.intValue != 0 {
-                continue
-            }
-
-            if let alpha = info[kCGWindowAlpha as String] as? NSNumber, alpha.doubleValue <= 0 {
-                continue
-            }
-
-            guard let cgBounds = CGRect(dictionaryRepresentation: boundsDict as CFDictionary),
-                  cgToAppKit(cgBounds).contains(point),
-                  let managed = managedWindow(id: windowID, pid: pid, ownerInfo: info) else {
-                continue
-            }
-
             return managed
         }
 
@@ -46,39 +20,11 @@ final class AXWindowEngine: WindowEngine {
     }
 
     func onScreenWindowFrames(excluding: Set<WindowID>) -> [WindowFrame] {
-        guard let windowInfos = CGWindowListCopyWindowInfo(
-            [.optionOnScreenOnly, .excludeDesktopElements],
-            CGWindowID(0)
-        ) as? [[String: Any]] else {
-            return []
-        }
-
-        var result: [WindowFrame] = []
-        for info in windowInfos {
-            guard let number = info[kCGWindowNumber as String] as? NSNumber,
-                  let ownerPID = info[kCGWindowOwnerPID as String] as? NSNumber,
-                  let layer = info[kCGWindowLayer as String] as? NSNumber,
-                  let boundsDict = info[kCGWindowBounds as String] as? NSDictionary else {
-                continue
-            }
-
-            let windowID = WindowID(number.uint32Value)
-            let pid = pid_t(ownerPID.int32Value)
-            if pid == ownPID || excluding.contains(windowID) || layer.intValue != 0 {
-                continue
-            }
-            if let alpha = info[kCGWindowAlpha as String] as? NSNumber, alpha.doubleValue <= 0 {
-                continue
-            }
-            guard let cgBounds = CGRect(dictionaryRepresentation: boundsDict as CFDictionary) else {
-                continue
-            }
-            let frame = cgToAppKit(cgBounds)
+        WindowServerSnapshot.onScreenWindows(excludingOwnPID: ownPID, excluding: excluding).compactMap { window in
             // Skip tiny utility/overlay windows that aren't meaningful drop targets.
-            if frame.width < 80 || frame.height < 80 { continue }
-            result.append(WindowFrame(id: windowID, pid: pid, frame: frame))
+            guard window.frame.width >= 80, window.frame.height >= 80 else { return nil }
+            return WindowFrame(id: window.id, pid: window.pid, frame: window.frame)
         }
-        return result
     }
 
     func managedWindow(from element: AXUIElement, pid: pid_t) -> ManagedWindow? {
@@ -108,21 +54,48 @@ final class AXWindowEngine: WindowEngine {
             return nil
         }
 
-        return cgToAppKit(CGRect(origin: position, size: size))
+        return CoordinateConverter.appKitFrame(fromCG: CGRect(origin: position, size: size))
     }
 
     func windowServerFrame(of id: WindowID) -> CGRect? {
-        guard let infos = CGWindowListCopyWindowInfo([.optionIncludingWindow], id) as? [[String: Any]],
-              let info = infos.first,
-              let boundsDict = info[kCGWindowBounds as String] as? NSDictionary,
-              let cg = CGRect(dictionaryRepresentation: boundsDict as CFDictionary) else {
-            return nil
+        WindowServerSnapshot.window(id: id)?.frame
+    }
+
+    func focusedOrMainWindowID(for pid: pid_t) -> WindowID? {
+        let appElement = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(appElement, 1.0)
+
+        if let focused = copyAXElementAttribute(kAXFocusedWindowAttribute, from: appElement),
+           let id = windowID(for: focused) {
+            return id
         }
-        return cgToAppKit(cg)
+        if let main = copyAXElementAttribute(kAXMainWindowAttribute, from: appElement),
+           let id = windowID(for: main) {
+            return id
+        }
+        return nil
+    }
+
+    func frontmostWindowID() -> WindowID? {
+        WindowServerSnapshot.frontmostVisibleWindow(excludingOwnPID: ownPID)?.id
+    }
+
+    func candidateWindowElements(from element: AXUIElement, pid: pid_t) -> [AXUIElement] {
+        var candidates = [element]
+        let appElement = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(appElement, 1.0)
+
+        if let focused = copyAXElementAttribute(kAXFocusedWindowAttribute, from: appElement) {
+            candidates.append(focused)
+        }
+        if let main = copyAXElementAttribute(kAXMainWindowAttribute, from: appElement) {
+            candidates.append(main)
+        }
+        return candidates
     }
 
     func setFrame(_ frame: CGRect, of window: ManagedWindow) {
-        let cgFrame = appKitToCG(frame)
+        let cgFrame = CoordinateConverter.cgFrame(fromAppKit: frame)
         setCGSizeAttribute(kAXSizeAttribute, value: cgFrame.size, on: window.element)
         setCGPointAttribute(kAXPositionAttribute, value: cgFrame.origin, on: window.element)
     }
@@ -216,6 +189,25 @@ final class AXWindowEngine: WindowEngine {
         return value as? String
     }
 
+    private func copyAXElementAttribute(_ attribute: String, from element: AXUIElement) -> AXUIElement? {
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success,
+              let value,
+              CFGetTypeID(value) == AXUIElementGetTypeID() else {
+            return nil
+        }
+        return (value as! AXUIElement)
+    }
+
+    private func windowID(for element: AXUIElement) -> WindowID? {
+        var resolved = CGWindowID(0)
+        guard _AXUIElementGetWindow(element, &resolved) == .success,
+              resolved != 0 else {
+            return nil
+        }
+        return resolved
+    }
+
     private func copyCGPointAttribute(_ attribute: String, from element: AXUIElement) -> CGPoint? {
         var value: CFTypeRef?
         guard AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success,
@@ -252,25 +244,4 @@ final class AXWindowEngine: WindowEngine {
         AXUIElementSetAttributeValue(element, attribute as CFString, axValue)
     }
 
-    private func cgToAppKit(_ frame: CGRect) -> CGRect {
-        CGRect(
-            x: frame.minX,
-            y: screenHeight - frame.minY - frame.height,
-            width: frame.width,
-            height: frame.height
-        )
-    }
-
-    private func appKitToCG(_ frame: CGRect) -> CGRect {
-        CGRect(
-            x: frame.minX,
-            y: screenHeight - frame.minY - frame.height,
-            width: frame.width,
-            height: frame.height
-        )
-    }
-
-    private var screenHeight: CGFloat {
-        NSScreen.screens.first?.frame.height ?? NSScreen.main?.frame.height ?? 0
-    }
 }
