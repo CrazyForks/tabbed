@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// A borderless floating panel that hosts one group's `TabStripView`.
+/// A borderless non-activating panel that hosts one group's `TabStripView`.
 ///
 /// Space behaviour: the panel deliberately does **not** use
 /// `.canJoinAllSpaces`, so once it is ordered onto a Space it stays pinned to
@@ -38,9 +38,8 @@ final class TabBarPanel: NSPanel {
             defer: false
         )
 
-        isFloatingPanel = true
-        // Keep the compact pill visible while it overlaps the member window.
-        level = .floating
+        isFloatingPanel = false
+        level = .normal
         hidesOnDeactivate = false
         isMovableByWindowBackground = false
         backgroundColor = .clear
@@ -137,7 +136,9 @@ final class TabBarPanel: NSPanel {
 
     func show() {
         appearance = NSAppearance(named: .darkAqua)
-        orderFrontRegardless()
+        if !isVisible {
+            orderFront(nil)
+        }
     }
 
     func hide() {

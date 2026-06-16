@@ -35,8 +35,19 @@ On first launch, grant **System Settings → Privacy & Security → Accessibilit
 
 ```sh
 brew tap ZimengXiong/tools
-brew install --cask tabbed
+HOMEBREW_GITHUB_API_TOKEN="$(gh auth token)" brew install --cask tabbed
 ```
+
+The cask clears quarantine automatically. If macOS still shows a Gatekeeper
+warning after manual downloads, run:
+
+```sh
+xattr -dr com.apple.quarantine /Applications/Tabbed.app
+```
+
+Release builds are signed with the installed `Apple Development` identity for
+team `W9C2P3N7Q2`. A true Developer ID / notarized build needs a Developer ID
+Application certificate in Keychain.
 
 ## Layout
 

@@ -8,12 +8,11 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "0.1.0"
+    MARKETING_VERSION: "0.1.1"
     CURRENT_PROJECT_VERSION: "1"
-    # Ad-hoc signing keeps local debug builds independent of a developer cert.
-    DEVELOPMENT_TEAM: ""
+    DEVELOPMENT_TEAM: "W9C2P3N7Q2"
     CODE_SIGN_STYLE: Manual
-    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGN_IDENTITY: "Apple Development: zxzimeng@gmail.com (4F7GA4MB42)"
     PROVISIONING_PROFILE_SPECIFIER: ""
     ENABLE_HARDENED_RUNTIME: YES
     SWIFT_STRICT_CONCURRENCY: minimal

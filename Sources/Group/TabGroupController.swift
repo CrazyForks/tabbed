@@ -241,6 +241,7 @@ final class TabGroupController: NSObject, DragMonitorDelegate {
             resting: group.stripFrame,
             expanded: compact ? group.compactExpandedFrame : group.stripFrameAbove
         )
+        reassertPanelZOrder(for: group)
     }
 
     /// Position every member window at the group's content frame, raise the
@@ -507,10 +508,33 @@ final class TabGroupController: NSObject, DragMonitorDelegate {
     }
 
     private func syncPanelZOrderWithFrontmostGroup() {
-        guard let group = frontmostGroup(), isGroupOnActiveSpace(group) else { return }
-        markRecentlyUsed(group)
-        positionPanel(for: group)
-        group.panel.orderFrontRegardless()
+        let frontmost = frontmostGroup()
+
+        if let frontmost, isGroupOnActiveSpace(frontmost) {
+            markRecentlyUsed(frontmost)
+            positionPanel(for: frontmost)
+        }
+
+        for group in groups where group !== frontmost {
+            reassertPanelZOrder(for: group)
+        }
+    }
+
+    private func reassertPanelZOrder(for group: TabGroup) {
+        guard isGroupOnActiveSpace(group) else { return }
+
+        let frontmostCGWindowID = frontmostCGWindowID()
+        if let active = group.activeWindow,
+           frontmostGroup() === group || frontmostCGWindowID == active.id {
+            group.panel.order(.above, relativeTo: Int(active.id))
+            return
+        }
+
+        if let frontmostCGWindowID {
+            group.panel.order(.below, relativeTo: Int(frontmostCGWindowID))
+        } else {
+            group.panel.orderOut(nil)
+        }
     }
 
     private func markRecentlyUsed(_ group: TabGroup) {
@@ -549,6 +573,33 @@ final class TabGroupController: NSObject, DragMonitorDelegate {
             return nil
         }
         return resolved
+    }
+
+    private func frontmostCGWindowID() -> WindowID? {
+        guard let windowInfos = CGWindowListCopyWindowInfo(
+            [.optionOnScreenOnly, .excludeDesktopElements],
+            CGWindowID(0)
+        ) as? [[String: Any]] else {
+            return nil
+        }
+
+        for info in windowInfos {
+            guard let number = info[kCGWindowNumber as String] as? NSNumber,
+                  let ownerPID = info[kCGWindowOwnerPID as String] as? NSNumber,
+                  let layer = info[kCGWindowLayer as String] as? NSNumber else {
+                continue
+            }
+
+            if pid_t(ownerPID.int32Value) == ownPID || layer.intValue != 0 {
+                continue
+            }
+            if let alpha = info[kCGWindowAlpha as String] as? NSNumber, alpha.doubleValue <= 0 {
+                continue
+            }
+            return WindowID(number.uint32Value)
+        }
+
+        return nil
     }
 
     // MARK: - AX sync
