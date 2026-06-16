@@ -10,3 +10,5 @@ brew install --cask tabbed
 xattr -dr com.apple.quarantine /Applications/Tabbed.app
 ```
 on first launch, grant **System Settings -> Privacy & Security -> Accessibility**
+
+hold ⌘ while dragging windows to create tab groups
