@@ -1,0 +1,14 @@
+# Xcode / build
+.build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+
+# xcodegen output (regenerate with `xcodegen generate`)
+Tabbed.xcodeproj/
+
+# macOS
+.DS_Store
+
+# Keep winmux reference out of this project's history
+winmux/
