@@ -15,8 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let trusted = ensureAccessibilityPermission()
         NSLog("[Tabbed] accessibility trusted = \(trusted)")
         guard trusted else {
-            // The system prompt has been shown; the user must grant access and
-            // relaunch. Keep running so the menu bar item explains the state.
+            // Keep the menu item available while the user grants access.
             statusItem?.button?.appearsDisabled = true
             return
         }

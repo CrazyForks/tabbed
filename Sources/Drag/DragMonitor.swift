@@ -1,22 +1,16 @@
 import AppKit
 import CoreGraphics
 
-/// Reports a "Command + drag a window" gesture to its delegate.
+/// Reports a Command-drag window gesture.
 @MainActor
 protocol DragMonitorDelegate: AnyObject {
-    /// The user pressed the left button with Command held over `window`
-    /// (nil if there is no manageable window there — the gesture is then ignored).
     func dragDidBegin(window: ManagedWindow?, at point: CGPoint)
-    /// Cursor moved while the gesture is active. `point` is screen coords.
     func dragDidMove(to point: CGPoint)
-    /// Button released while the gesture is active.
     func dragDidEnd(at point: CGPoint)
-    /// Command released (or otherwise aborted) before the button came up.
     func dragDidCancel()
 }
 
-/// Detects the global Command-drag gesture and consumes mouse events only after
-/// the movement threshold is crossed.
+/// Global Command-drag event tap.
 @MainActor
 final class DragMonitor {
     weak var delegate: DragMonitorDelegate?
@@ -25,17 +19,14 @@ final class DragMonitor {
     private var runLoopSource: CFRunLoopSource?
     private var isTakingOverDrag = false
     private var isMouseDown = false
-    /// True between Command mouse-down and either takeover or cancellation.
     private var pendingGesture = false
     private var downPoint: CGPoint = .zero
-    /// Movement required before a Command-drag takes over the mouse.
     private static let dragThreshold: CGFloat = 6
 
     init(engine: WindowEngine) {
         self.engine = engine
     }
 
-    /// Install the event tap.
     func start() {
         guard eventTap == nil else { return }
 
@@ -149,8 +140,6 @@ final class DragMonitor {
         }
     }
 
-    /// Start a takeover at `point` if there is a window there. Returns whether
-    /// it actually started.
     private func beginTakeover(at point: CGPoint) -> Bool {
         let window = engine.window(at: point, excluding: [])
         delegate?.dragDidBegin(window: window, at: point)

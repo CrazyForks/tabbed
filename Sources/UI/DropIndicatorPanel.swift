@@ -1,14 +1,11 @@
 import AppKit
 import SwiftUI
 
-/// Extra room around the target so the soft border glow isn't clipped by the
-/// panel's bounds.
+/// Extra panel padding so the border glow is not clipped.
 private let dropGlowInset: CGFloat = 16
 private let dropCornerRadius: CGFloat = 11
 
-/// A click-through overlay drawn over a candidate target window while the user
-/// Command-drags another window over it. Communicates "release to tab here"
-/// with a subtle highlighted region rather than a heavy label.
+/// Click-through overlay shown over a drop target.
 final class DropIndicatorPanel: NSPanel {
     init() {
         super.init(
@@ -23,7 +20,7 @@ final class DropIndicatorPanel: NSPanel {
         backgroundColor = .clear
         isOpaque = false
         hasShadow = false
-        ignoresMouseEvents = true            // never intercept the drag
+        ignoresMouseEvents = true
         collectionBehavior = [.fullScreenAuxiliary, .ignoresCycle]
 
         let host = NSHostingView(rootView: DropIndicatorView())
@@ -34,9 +31,7 @@ final class DropIndicatorPanel: NSPanel {
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
 
-    /// Show the indicator over `frame` (screen, bottom-left origin).
     func present(over frame: CGRect) {
-        // Inflate so the glow around the border has room and isn't clipped.
         setFrame(frame.insetBy(dx: -dropGlowInset, dy: -dropGlowInset), display: true)
         orderFrontRegardless()
     }

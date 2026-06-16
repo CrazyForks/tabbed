@@ -133,21 +133,13 @@ jobs:
           git clone "https://x-access-token:${GH_TOKEN}@github.com/${TAP_REPO}.git" "$tap_dir"
           cd "$tap_dir"
 
-          asset_id=$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${GITHUB_REF_NAME}" \
-            --jq '.assets[] | select(.name == "Tabbed.app.zip") | .id')
-          test -n "$asset_id"
-
           mkdir -p "$(dirname "$TAP_CASK_PATH")"
           cat > "$TAP_CASK_PATH" <<RUBY
           cask "tabbed" do
             version "${VERSION}"
             sha256 "${SHA256}"
 
-            url "https://api.github.com/repos/ZimengXiong/tabbed/releases/assets/${asset_id}",
-                header: [
-                  "Accept: application/octet-stream",
-                  "Authorization: token #{ENV.fetch("HOMEBREW_GITHUB_API_TOKEN", "")}"
-                ]
+            url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/Tabbed.app.zip"
             name "Tabbed"
             desc "Command-drag macOS windows into lightweight tab stacks"
             homepage "https://github.com/ZimengXiong/tabbed"

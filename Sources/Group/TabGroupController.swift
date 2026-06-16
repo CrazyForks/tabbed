@@ -1,13 +1,7 @@
 import AppKit
 import ApplicationServices
 
-/// The conductor. Owns the window engine and drag monitor, turns a
-/// Command-drag-onto-another-window gesture into a tab group, and keeps each
-/// group's windows + floating strip in sync.
-///
-/// The UI panels are created here but their *contents* (`TabStripView`,
-/// `DropIndicatorView`) are owned by the UI layer; this class only positions
-/// them and feeds them data via `TabGroupViewModel`.
+/// Coordinates drag gestures, real windows, and floating tab strips.
 @MainActor
 final class TabGroupController: NSObject, DragMonitorDelegate {
     private let engine: WindowEngine
@@ -27,7 +21,6 @@ final class TabGroupController: NSObject, DragMonitorDelegate {
     private(set) var autoAddNewWindowsToStack = AppSettings.autoAddNewWindowsToStack
     private(set) var alwaysUseCompactMode = AppSettings.alwaysUseCompactMode
 
-    /// In-flight drag state.
     private var draggedWindow: ManagedWindow?
     private var draggedSize: CGSize?
     private var dragGrabOffset: CGSize = .zero
@@ -116,8 +109,7 @@ final class TabGroupController: NSObject, DragMonitorDelegate {
 
     // MARK: - Core action
 
-    /// Tab `dragged` onto `target`. **Preserves the target window's size**: the
-    /// group adopts the target's frame and the dragged window is resized to it.
+    /// Tab `dragged` onto `target`, preserving the target frame.
     func formGroup(dragged: ManagedWindow, target: ManagedWindow, knownFrame: CGRect? = nil) {
         guard dragged.id != target.id,
               let targetFrame = knownFrame ?? engine.frame(of: target) else {
@@ -163,7 +155,6 @@ final class TabGroupController: NSObject, DragMonitorDelegate {
         applyLayout(for: destination)
     }
 
-    /// Wire a freshly created group's view-model callbacks back to this engine.
     private func wire(_ group: TabGroup) {
         group.viewModel.onSelect = { [weak self, weak group] id in
             guard let self, let group else { return }
@@ -173,7 +164,6 @@ final class TabGroupController: NSObject, DragMonitorDelegate {
             guard let self, let group else { return }
             self.untab(id, from: group)
         }
-        // Clicking the blank strip area focuses the group's active window.
         group.viewModel.onActivateActive = { [weak self, weak group] in
             guard let self, let group, let active = group.activeWindow else { return }
             self.selectTab(active.id, in: group)
@@ -228,9 +218,6 @@ final class TabGroupController: NSObject, DragMonitorDelegate {
         applyLayout(for: group)
     }
 
-    /// Position a group's strip panel, choosing the full bar above the window or
-    /// the compact top-right pill based on available room above. Callers are
-    /// responsible for ordering the panel front (`show()` / `orderFront`).
     private func positionPanel(for group: TabGroup) {
         let compact = group.useCompact
         if group.viewModel.compact != compact {
@@ -239,13 +226,11 @@ final class TabGroupController: NSObject, DragMonitorDelegate {
         group.panel.applyLayout(
             compact: compact,
             resting: group.stripFrame,
-            expanded: compact ? group.compactExpandedMatteFrame : group.stripFrameAbove
+            expanded: compact ? group.compactExpandedFrame : group.stripFrameAbove
         )
         reassertPanelZOrder(for: group)
     }
 
-    /// Position every member window at the group's content frame, raise the
-    /// active one, and place the strip on top.
     func applyLayout(for group: TabGroup) {
         guard isGroupOnActiveSpace(group) else {
             group.panel.hide()
@@ -272,7 +257,7 @@ final class TabGroupController: NSObject, DragMonitorDelegate {
         group.syncViewModel()
     }
 
-    /// Hide an inactive member mostly off-screen while keeping AX from clamping it.
+    /// Park inactive tabs out of view without triggering AX clamping.
     private func parkOffscreen(_ window: ManagedWindow) {
         guard let frame = engine.frame(of: window) else { return }
         let screen = NSScreen.screens.first { $0.frame.intersects(frame) }
@@ -293,7 +278,6 @@ final class TabGroupController: NSObject, DragMonitorDelegate {
         }
     }
 
-    /// Remove a window from its group (un-tab it); it becomes a free window again.
     func untab(_ id: WindowID, from group: TabGroup) {
         guard let window = group.windows.first(where: { $0.id == id }) else { return }
         let base = group.contentFrame
@@ -349,8 +333,6 @@ final class TabGroupController: NSObject, DragMonitorDelegate {
         }
     }
 
-    /// Drop any windows that no longer exist (e.g. closed without a destroyed
-    /// event). Defensive sweep against ghost/stale tabs.
     private func pruneDeadWindows() {
         for group in groups {
             for window in group.windows where !engine.isAlive(window) {
@@ -398,8 +380,6 @@ final class TabGroupController: NSObject, DragMonitorDelegate {
     func setAlwaysUseCompactMode(_ enabled: Bool) {
         alwaysUseCompactMode = enabled
         AppSettings.alwaysUseCompactMode = enabled
-        // Re-position every visible group's panel so the change takes effect
-        // immediately (compact pill ↔ full bar) without waiting for a focus event.
         for group in groups where isGroupOnActiveSpace(group) {
             positionPanel(for: group)
             group.panel.show()
@@ -619,7 +599,7 @@ final class TabGroupController: NSObject, DragMonitorDelegate {
 
         case kAXMovedNotification, kAXResizedNotification:
             guard group.activeWindow?.id == id,
-                  id != draggedWindow?.id,   // ignore our own ⌘-drag of this window
+                  id != draggedWindow?.id,
                   isGroupOnActiveSpace(group),
                   let frame = engine.frame(of: group.windows[group.activeIndex]) else {
                 return
@@ -633,7 +613,7 @@ final class TabGroupController: NSObject, DragMonitorDelegate {
         }
     }
 
-    // AX move notifications lag during title-bar drags, so poll briefly.
+    // AX move notifications lag during title-bar drags.
     private var activeMoveTimer: Timer?
     private weak var activeMoveGroup: TabGroup?
     private var activeMoveDeadline: Date = .distantPast
@@ -701,8 +681,7 @@ final class TabGroupController: NSObject, DragMonitorDelegate {
 
     private func isGroupOnActiveSpace(_ group: TabGroup) -> Bool {
         guard let groupSpace = group.spaceID,
-              let reference = group.activeWindow ?? group.windows.first,
-              let activeSpace = engine.activeSpaceID(forScreenOf: reference) else {
+              let activeSpace = engine.activeSpaceID() else {
             return true
         }
         return groupSpace == activeSpace

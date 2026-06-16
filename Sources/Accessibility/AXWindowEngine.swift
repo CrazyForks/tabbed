@@ -157,9 +157,7 @@ final class AXWindowEngine: WindowEngine {
         return spaces.spaceID(forWindow: window.id)
     }
 
-    func activeSpaceID(forScreenOf window: ManagedWindow) -> UInt64? {
-        return spaces.activeSpaceID()
-    }
+    func activeSpaceID() -> UInt64? { spaces.activeSpaceID() }
 
     func move(_ window: ManagedWindow, toSpaceOf reference: ManagedWindow) {
         spaces.move(window: window.id, toSpaceOf: reference.id)

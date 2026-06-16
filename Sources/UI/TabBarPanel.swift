@@ -1,35 +1,20 @@
 import AppKit
 import SwiftUI
 
-/// A borderless non-activating panel that hosts one group's `TabStripView`.
-///
-/// Space behaviour: the panel deliberately does **not** use
-/// `.canJoinAllSpaces`, so once it is ordered onto a Space it stays pinned to
-/// that Space. The backend is responsible for ordering it in while the group's
-/// Space is active so it lands on the correct one.
+/// Borderless non-activating panel for one group's tab strip.
 final class TabBarPanel: NSPanel {
     let model: TabGroupViewModel
 
-    /// Layout state for the compact pill mode. `resting` is the small top-right
-    /// pill; `expanded` is the full bar shown while hovered.
     private var isCompact = false
     private var restingFrame: CGRect = .zero
     private var expandedFrame: CGRect = .zero
 
-    /// How far the cursor may stray beyond the expanded bar before it collapses
-    /// back to the pill — a grace margin so an overshoot doesn't dismiss it. The
-    /// vertical margin is deliberately much larger than the horizontal one, since
-    /// the natural overshoot when reaching for a top-edge bar is up/down (into the
-    /// menu bar above or the window body below).
+    /// Grace margin around the expanded bar before compact mode collapses.
     private let collapseSafeZoneX: CGFloat = 28
     private let collapseSafeZoneY: CGFloat = 72
-    /// Polls the cursor after it leaves the bar; fires a collapse only once the
-    /// cursor crosses the padded safe-zone boundary.
     private var collapseWatcher: Timer?
 
-    /// Container that owns the AppKit tracking area. SwiftUI `.onHover` does not
-    /// fire on a `.nonactivatingPanel` (it never becomes key), so hover must be
-    /// detected at the AppKit layer.
+    /// AppKit hover tracking for the non-activating panel.
     private let trackingContainer: HoverTrackingView
 
     init(model: TabGroupViewModel) {
@@ -72,15 +57,11 @@ final class TabBarPanel: NSPanel {
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
 
-    /// Position the strip. `frame` is in screen (bottom-left origin) coordinates.
     func place(at frame: CGRect) {
         setFrame(frame, display: true)
     }
 
-    /// Configure the panel's layout for the current room-above state. In compact
-    /// mode the panel rests at the small top-right pill and expands to the full
-    /// bar on hover; otherwise it just sits at `resting`.
-    /// All frames are AppKit screen coordinates (bottom-left origin).
+    /// Configure resting and expanded frames for the current layout.
     func applyLayout(compact: Bool, resting: CGRect, expanded: CGRect) {
         isCompact = compact
         restingFrame = resting
@@ -90,9 +71,6 @@ final class TabBarPanel: NSPanel {
         setFrame(target, display: true)
     }
 
-    /// Hover transitions for compact mode, driven by the AppKit tracking area.
-    /// Expanding is immediate; collapsing is deferred until the cursor leaves a
-    /// padded safe zone around the bar, so small overshoots don't dismiss it.
     private func handleHover(_ hovering: Bool) {
         guard isCompact else { return }
         if hovering {
@@ -103,8 +81,6 @@ final class TabBarPanel: NSPanel {
         }
     }
 
-    /// Animate the panel between its pill (resting) and bar (expanded) frames and
-    /// update the model so the SwiftUI content cross-fades in step.
     private func setExpanded(_ expanded: Bool) {
         model.hovered = expanded
         let target = expanded ? expandedFrame : restingFrame
@@ -116,8 +92,6 @@ final class TabBarPanel: NSPanel {
         }
     }
 
-    /// After the cursor leaves the bar, keep it open while the cursor stays within
-    /// `collapseSafeZone` points of the expanded frame; collapse once it crosses.
     private func beginCollapseWatch() {
         cancelCollapseWatch()
         collapseWatcher = Timer.scheduledTimer(withTimeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
@@ -151,12 +125,7 @@ final class TabBarPanel: NSPanel {
     }
 }
 
-/// Content container that reports mouse enter/exit via an AppKit tracking area.
-///
-/// Required because the host panel is a `.nonactivatingPanel` that never becomes
-/// key, so SwiftUI's `.onHover` won't fire. `.activeAlways` keeps tracking even
-/// when the app isn't active; `.inVisibleRect` keeps the tracking rect synced to
-/// the (resizing) view bounds automatically.
+/// NSView-backed hover reporting for non-activating panels.
 final class HoverTrackingView: NSView {
     var onHoverChange: ((Bool) -> Void)?
     private var trackingArea: NSTrackingArea?

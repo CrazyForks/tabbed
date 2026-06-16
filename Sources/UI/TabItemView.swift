@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// A single pill in the tab strip: app icon + title, with active / hover styling.
 struct TabItemView: View {
     let tab: TabDescriptor
     let isActive: Bool
@@ -12,7 +11,6 @@ struct TabItemView: View {
 
     var body: some View {
         ZStack {
-            // Favicon + title, centered like Safari.
             HStack(spacing: 6) {
                 icon
 
@@ -22,12 +20,8 @@ struct TabItemView: View {
                     .truncationMode(.tail)
                     .foregroundStyle(.white.opacity(textOpacity))
             }
-            // Leave room so the centered title never collides with the close button.
             .padding(.horizontal, 22)
 
-            // Close button overlaid on the leading edge (appears on hover only,
-            // so the resting tab stays clean); as an overlay it doesn't shift
-            // the centered title.
             if isHovered {
                 HStack {
                     closeButton
@@ -76,9 +70,6 @@ struct TabItemView: View {
 }
 
 private extension View {
-    /// Selected/hovered tab highlight: a translucent capsule drawn on the glass
-    /// bar (the Safari/Tahoe pattern). A plain fill — not a nested glass effect —
-    /// so it never intercepts the tab's tap or collapse its layout.
     func pillHighlight(isActive: Bool, isHovered: Bool) -> some View {
         let shape = Capsule(style: .continuous)
         let fill = isActive ? Theme.fillActive : (isHovered ? Theme.fillHover : Theme.fillIdle)

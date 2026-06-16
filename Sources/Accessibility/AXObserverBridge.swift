@@ -32,9 +32,7 @@ final class AXObserverBridge {
         observations[window.id] = Observation(observer: observer, source: source, element: window.element)
     }
 
-    /// Resolve which observed window an AX element belongs to. Matches by element
-    /// identity (CFEqual) so it still works after the window has been destroyed,
-    /// when `_AXUIElementGetWindow` would fail.
+    /// Match by element identity because destroyed windows may not resolve by id.
     private func windowID(for element: AXUIElement) -> WindowID? {
         for (id, observation) in observations where CFEqual(observation.element, element) {
             return id

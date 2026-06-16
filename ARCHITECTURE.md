@@ -22,14 +22,13 @@ union/zero-screen height consistently).
 
 ## The contract
 
-### UI → backend (already implemented, do not change)
+### UI → backend
 - `TabDescriptor` (`Sources/Model`) — value type the strip renders.
-- `TabGroupViewModel` (`Sources/Group`) — `@Published tabs/activeID` + `onSelect`,
-  `onClose`, `onReorder` callbacks. Backend pushes state in, UI calls back out.
+- `TabGroupViewModel` (`Sources/Group`) — published tab state plus callbacks.
 - `TabBarPanel`, `DropIndicatorPanel`, `TabStripView`, `TabItemView`, `Theme`
-  (`Sources/UI`) — the backend instantiates/positions panels but never edits these.
+  (`Sources/UI`) — the backend instantiates and positions panels.
 
-### Backend surface (implement these — marked `TODO(codex)`)
+### Backend surface
 - `WindowEngine` protocol + `AXWindowEngine` (`Sources/Accessibility`).
 - `SpacesService` + `Tabbed-Bridging-Header.h` (`Sources/Accessibility`).
 - `DragMonitor` + `DragMonitorDelegate` (`Sources/Drag`).

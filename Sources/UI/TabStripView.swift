@@ -1,7 +1,5 @@
 import SwiftUI
 
-/// The row of tabs hosted inside a `TabBarPanel`. Pure presentation: it renders
-/// `model.tabs` and routes clicks back through the view model.
 struct TabStripView: View {
     @ObservedObject var model: TabGroupViewModel
     @State private var hoveredID: WindowID?
@@ -15,38 +13,12 @@ struct TabStripView: View {
             .animation(.easeOut(duration: 0.18), value: isShowingPill)
     }
 
-    /// The glass bar itself. In compact mode it's re-inset inside the panel and
-    /// surrounded by the frosted matte halo (`compactMatte`) that fills the gap
-    /// out to the window edges; otherwise it fills the panel as before.
-    @ViewBuilder
     private var bar: some View {
-        let core = content.frame(height: Theme.stripHeight).glassBar()
-        if model.compact {
-            core
-                .padding(Theme.compactInset)
-                .background(compactMatte)
-        } else {
-            core
-        }
-    }
-
-    /// A slight blur of the window content behind the bar, drawn in the inset gap
-    /// around it (concentric with the bar's curve). Lifts the bar off busy
-    /// backgrounds without covering the window like a solid frame would.
-    private var compactMatte: some View {
-        let shape = RoundedRectangle(cornerRadius: Theme.compactMatteCornerRadius, style: .continuous)
-        return ZStack {
-            VisualEffectBackground(material: .hudWindow, blending: .behindWindow)
-            shape.fill(.black.opacity(Theme.compactMatteTint))
-        }
-        .clipShape(shape)
-        .overlay(shape.strokeBorder(.white.opacity(0.06), lineWidth: 0.5))
+        content.frame(height: Theme.stripHeight).glassBar()
     }
 
     private var isShowingPill: Bool { model.compact && !model.hovered }
 
-    /// Compact icon-only pill at rest (no room above); full bar otherwise or
-    /// while hovered.
     @ViewBuilder
     private var content: some View {
         if isShowingPill {
@@ -70,7 +42,6 @@ struct TabStripView: View {
         .padding(Theme.stripPadding)
     }
 
-    /// The row of equal-width tab pills filling the available width.
     private func tabRow(width: CGFloat) -> some View {
         HStack(spacing: Theme.tabSpacing) {
             ForEach(model.tabs) { tab in
@@ -131,9 +102,6 @@ struct TabStripView: View {
             }
     }
 
-    /// Split the strip evenly across tabs so the row always fills the bar.
-    /// `overflowing` is true once an equal share would fall below the minimum
-    /// width — then tabs pin to the floor and the caller scrolls horizontally.
     private func tabLayout(forContainerWidth containerWidth: CGFloat) -> (width: CGFloat, overflowing: Bool) {
         let count = CGFloat(max(model.tabs.count, 1))
         let totalSpacing = Theme.tabSpacing * (count - 1)
@@ -144,7 +112,6 @@ struct TabStripView: View {
     }
 }
 
-/// Thin wrapper so SwiftUI can use an `NSVisualEffectView` as a background.
 struct VisualEffectBackground: NSViewRepresentable {
     var material: NSVisualEffectView.Material
     var blending: NSVisualEffectView.BlendingMode
@@ -164,11 +131,7 @@ struct VisualEffectBackground: NSViewRepresentable {
 }
 
 private extension View {
-    /// The strip's container surface: real Liquid Glass on macOS 26+, with the
-    /// HUD material as a fallback on older systems. Liquid Glass `.regular` is
-    /// backdrop-adaptive and brightens to white over a light desktop, so a dark
-    /// translucent wash is layered *over* the glass (behind the tabs) to anchor
-    /// it dark deterministically — the glass still shows through at ~50%.
+    /// Liquid Glass on macOS 26+, HUD material fallback otherwise.
     @ViewBuilder
     func glassBar() -> some View {
         let shape = RoundedRectangle(cornerRadius: Theme.stripCornerRadius, style: .continuous)

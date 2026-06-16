@@ -9,8 +9,7 @@ enum AppSettings {
         set { UserDefaults.standard.set(newValue, forKey: autoAddNewWindowsToStackKey) }
     }
 
-    /// When on, the strip always uses the compact corner pill (expanding on
-    /// hover) instead of the full bar, even when there's room above the window.
+    /// Force the compact corner strip even when there is room above.
     static var alwaysUseCompactMode: Bool {
         get { UserDefaults.standard.bool(forKey: alwaysUseCompactModeKey) }
         set { UserDefaults.standard.set(newValue, forKey: alwaysUseCompactModeKey) }

@@ -35,7 +35,7 @@ On first launch, grant **System Settings → Privacy & Security → Accessibilit
 
 ```sh
 brew tap ZimengXiong/tools
-HOMEBREW_GITHUB_API_TOKEN="$(gh auth token)" brew install --cask tabbed
+brew install --cask tabbed
 ```
 
 The cask clears quarantine automatically. If macOS still shows a Gatekeeper
