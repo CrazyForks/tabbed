@@ -17,6 +17,13 @@ final class TabGroupController: NSObject, DragMonitorDelegate {
     private let dropIndicator = DropIndicatorPanel()
     let ownPID = ProcessInfo.processInfo.processIdentifier
 
+    var config = TabbedConfig.load()
+    lazy var keyboardMonitor: KeyboardShortcutMonitor = {
+        let monitor = KeyboardShortcutMonitor(settings: config.shortcuts)
+        monitor.delegate = self
+        return monitor
+    }()
+
     var groups: [TabGroup] = []
     var autoAddNewWindowsToStack = AppSettings.autoAddNewWindowsToStack
     var alwaysUseCompactMode = AppSettings.alwaysUseCompactMode
@@ -49,11 +56,18 @@ final class TabGroupController: NSObject, DragMonitorDelegate {
 
     func start() {
         dragMonitor.start()
+        keyboardMonitor.start()
         observeSpaceChanges()
         observeApplicationChanges()
         if autoAddNewWindowsToStack {
             observeRunningAppsForWindowCreation()
         }
+    }
+
+    /// Re-read `~/.config/tabbed.toml` and apply any keyboard-shortcut changes.
+    func reloadConfig() {
+        config = TabbedConfig.load()
+        keyboardMonitor.apply(settings: config.shortcuts)
     }
 
     // MARK: - DragMonitorDelegate

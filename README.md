@@ -12,3 +12,5 @@ xattr -dr com.apple.quarantine /Applications/Tabbed.app
 on first launch, grant **System Settings -> Privacy & Security -> Accessibility**
 
 hold ⌘ while dragging windows to create tab groups
+
+use kb shortcuts alt+1...n to switch between tabs, and alt+tab to cycle between tabs. configure other bindings in ~/.config/tabbed.toml. a config is created for you on first launch

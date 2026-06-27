@@ -14,6 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
+        TabbedConfig.ensureFileExists()
         setUpStatusItem()
 
         let trusted = ensureAccessibilityPermission()
@@ -54,6 +55,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         compactItem.state = AppSettings.alwaysUseCompactMode ? .on : .off
         compactModeMenuItem = compactItem
 
+        menu.addItem(.separator())
+        menu.addItem(withTitle: "Edit Configuration…",
+                     action: #selector(editConfig), keyEquivalent: "").target = self
+        menu.addItem(withTitle: "Reload Configuration",
+                     action: #selector(reloadConfig), keyEquivalent: "").target = self
+        menu.addItem(.separator())
         menu.addItem(withTitle: "Open Accessibility Settings…",
                      action: #selector(openAXSettings), keyEquivalent: "").target = self
         menu.addItem(.separator())
@@ -73,6 +80,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let enabled = !controller.alwaysUseCompactMode
         controller.setAlwaysUseCompactMode(enabled)
         compactModeMenuItem?.state = enabled ? .on : .off
+    }
+
+    @objc private func reloadConfig() {
+        controller.reloadConfig()
+    }
+
+    @objc private func editConfig() {
+        NSWorkspace.shared.open(TabbedConfig.ensureFileExists())
     }
 
     @objc private func openAXSettings() {

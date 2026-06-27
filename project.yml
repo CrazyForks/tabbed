@@ -8,7 +8,7 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "0.1.1"
+    MARKETING_VERSION: "0.1.2"
     CURRENT_PROJECT_VERSION: "1"
     DEVELOPMENT_TEAM: "W9C2P3N7Q2"
     CODE_SIGN_STYLE: Manual
